@@ -1,6 +1,6 @@
 let
   nixpkgs = import <nixpkgs> {};
-  ldpath = with nixpkgs.pkgs; nixpkgs.lib.makeLibraryPath [
+  libs = with nixpkgs.pkgs; [
     openssl
 
     xorg.libX11
@@ -10,6 +10,11 @@ let
     xorg.libXi
 
     libGL
+    SDL2
+  ];
+  ldpath = with nixpkgs.pkgs; nixpkgs.lib.makeLibraryPath libs;
+  pkgcfgpath = with nixpkgs.pkgs; nixpkgs.lib.makeSearchPathOutput "lib" "lib/pkgconfig" [
+    SDL2.dev
   ];
 
   self = with nixpkgs; nixpkgs.stdenv.mkDerivation rec {
@@ -23,12 +28,19 @@ let
         clang
         pkgconfig
     ];
+    buildInputs = libs;
 
     doCheck = false;
 
     shellHooks = ''
-      LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${ldpath}
-      export LD_LIBRARY_PATH
+      #LIBRARY_PATH="$(ldpath}";
+      #export LIBRARY_PATH;
+
+      LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${ldpath}";
+      export LD_LIBRARY_PATH;
+
+      PKG_CONFIG_PATH="$PKG_CONFIG_PATH:${pkgcfgpath}";
+      export PKG_CONFIG_PATH;
 
       PATH=$PATH:~/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin
     '';
