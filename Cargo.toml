@@ -4,7 +4,15 @@ version = "0.1.0"
 authors = ["Hernawan Faïz Abdillah <hernawan.faiz.abdillah@gmail.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+default-run = "main"
+
+[[bin]]
+name = "main"
+path = "./src/main.rs"
+
+[[bin]]
+name = "withsdl"
+path = "./src/withsdl.rs"
 
 [dependencies]
 gl = "0.11.0"
@@ -13,6 +21,11 @@ takeable-option = "0.4"
 piston-viewport = "1.0.0"
 piston2d-graphics = "0.37.0"
 piston2d-opengl_graphics = "0.74.0"
+
+piston = "0.52.0"
+pistoncore-sdl2_window = "0.66.0"
+rand = "0.6.0"
+sdl2 = "0.34.3"
 
 [build-dependencies]
 gl_generator = "0.13"
