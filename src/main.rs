@@ -9,34 +9,63 @@ type Point = [f64; 2];
 
 fn bezier_curve_points<'a>(p1: &'a Point, p2: &Point, p3: &Point) -> Vec<Point> {
     let mut points = vec![];
-    for i in 0..=100 {
-        let t: f64 = f64::from(i) / 100.0;
+    let step = 200;
+    for i in 0..=step {
+        let t: f64 = f64::from(i) / step as f64;
         // P(t) = P0*t^2 + P1*2*t*(1-t) + P2*(1-t)^2
-        let p_x = p1[0] * t.powf(2.0) + 2.0*p2[0]*t*(1.0-t) + p3[0]*(1.0-t).powf(2.0);
-        let p_y = p1[1] * t.powf(2.0) + 2.0*p2[1]*t*(1.0-t) + p3[1]*(1.0-t).powf(2.0);
+        let p_x = p3[0] * t.powf(2.0) + 2.0*p2[0]*t*(1.0-t) + p1[0]*(1.0-t).powf(2.0);
+        let p_y = p3[1] * t.powf(2.0) + 2.0*p2[1]*t*(1.0-t) + p1[1]*(1.0-t).powf(2.0);
         points.push([ p_x, p_y ]);
     }
     points
 }
 
-fn interp(s1: f64, s2: f64, pct: f64) -> f64 {
-    s1 + ((s2 - s1) * pct)
+fn interp(s1: f64, s2: f64, distance: f64) -> f64 {
+    let diff = s2 - s1;
+    if diff == 0.0 {
+        s1
+    } else {
+        s1 + ((s2 - s1) / (s2 - s1).abs() * distance)
+    }
 }
 
-fn get_rounded_rect_points(rect: graphics::types::Rectangle, round_pct: f64) -> Vec<[f64; 2]> {
+fn get_rounded_rect_points(rect: graphics::types::Rectangle, radius: f64) -> Vec<[f64; 2]> {
     let [ minx, miny, w, h ] = rect;
-    let p1 = [ minx, miny ];
-    let p2 = [ minx + w, miny ];
-    let p3 = [ minx + w, miny + h ];
-    let p4 = [ minx, miny + h ];
+    let tl = [ minx, miny ];
+    let tr = [ minx + w, miny ];
+    let bl = [ minx, miny + h ];
+    let br = [ minx + w, miny + h ];
 
-    /// Return interpolation points of a line at both ends 
-    #[inline]
-    fn segment_line_ends(p1: Point, p2: Point, pct: f64) -> [Point; 2] {
-        [
-            [ interp(p1[0], p2[0], pct), interp(p1[1], p2[1], pct) ],
-            [ interp(p1[0], p2[0], 1.0 - pct), interp(p1[1], p2[1], 1.0 - pct) ],
-        ]
+    enum Corner {
+        TopLeft,
+        TopRight,
+        BottomLeft,
+        BottomRight,
+    };
+
+    /// Get points of corner cut by circle intersection
+    ///
+    /// The point returned is clockwise.
+    fn get_cutcorner_points(rect: graphics::types::Rectangle, corner: Corner, radius: f64) -> [Point; 2] {
+        let [ minx, miny, w, h ] = rect;
+        match corner {
+            Corner::TopLeft => [
+                [ minx, miny + radius ],
+                [ minx + radius, miny ],
+            ],
+            Corner::TopRight => [
+                [ minx + w - radius, miny ],
+                [ minx + w, miny + radius ],
+            ],
+            Corner::BottomRight => [
+                [ minx + w, miny + h - radius ],
+                [ minx + w - radius, miny + h ],
+            ],
+            Corner::BottomLeft => [
+                [ minx + radius, miny + h ],
+                [ minx, miny + h - radius ],
+            ],
+        }
     }
 
     // Resulting points:
@@ -45,17 +74,19 @@ fn get_rounded_rect_points(rect: graphics::types::Rectangle, round_pct: f64) -> 
     //   |   ^--- tl  ^-- tr
     //   | <-- lt          | <-- rt
     //   |                 |
-    let top = segment_line_ends(p1, p2, round_pct);
-    let right = segment_line_ends(p2, p3, round_pct);
-    let bottom = segment_line_ends(p3, p4, round_pct);
-    let left = segment_line_ends(p4, p1, round_pct);
-
     let mut curved_rect_p = vec![];
-    curved_rect_p.push(bezier_curve_points(  &left[1], &p1, &top[0]));
-    curved_rect_p.push(bezier_curve_points(&bottom[1], &p4, &left[0]));
-    curved_rect_p.push(bezier_curve_points( &right[1], &p3, &bottom[0]));
-    curved_rect_p.push(bezier_curve_points(   &top[1], &p2, &right[0]));
+    let [ tl_left, tl_top ] = get_cutcorner_points(rect, Corner::TopLeft, radius);
+    println!("TopLeft: {:#?}", [tl_left, tl, tl_top]);
+
+    curved_rect_p.push(bezier_curve_points(&tl_left, &tl, &tl_top));
+    let [ tr_top, tr_right ] = get_cutcorner_points(rect, Corner::TopRight, radius);
+    curved_rect_p.push(bezier_curve_points(&tr_top, &tr, &tr_right));
+    let [ br_right, br_bottom ] = get_cutcorner_points(rect, Corner::BottomRight, radius);
+    curved_rect_p.push(bezier_curve_points(&br_right, &br, &br_bottom));
+    let [ bl_bottom, bl_left ] = get_cutcorner_points(rect, Corner::BottomLeft, radius);
+    curved_rect_p.push(bezier_curve_points(&bl_bottom, &bl, &bl_left));
     let curved_rect_p: Vec<Point> = curved_rect_p.into_iter().flatten().collect();
+    println!("{:#?}", curved_rect_p);
 
     curved_rect_p
 }
@@ -106,46 +137,24 @@ fn main() {
                 use graphics::*;
 
                 // const GREEN: [f32; 4] = [0.0, 1.0, 0.0, 1.0];
-                const RED: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
+                const WHITE: [f32; 4] = [0.8, 0.8, 0.8, 1.0];
                 const GRAY: [f32; 4] = [0.4, 0.4, 0.4, 0.9];
 
-                let square = rectangle::square(0.0, 0.0, 100.0);
-                let (x, y) = (20.0 / 2.0, 20.0 / 2.0);
+                let winsize = windowed_context.window().inner_size().clone();
+
+                let w: f64 = winsize.width.into();
+                let h: f64 = winsize.height.into();
         
                 pgr.draw(viewport::Viewport {
-                    rect: [ 20, 20, 120, 120 ],
-                    draw_size: [ 100, 100 ],
-                    window_size: [ 100.0, 100.0 ],
+                    rect: [ 0, 0, w as i32, h as i32 ],
+                    draw_size: [ w as u32, h as u32 ],
+                    window_size: [ w.into(), h.into() ],
                 }, |c, pgr| {
                     // Clear the screen.
-                    // clear(GREEN, pgr);
-        
-                    // let transform = c
-                    //     .transform
-                    //     .trans(x, y)
-                    //     // .rot_rad(20.0)
-                    //     .trans(-25.0, -25.0);
-
-                    // let rect_p: Vec<[f64; 2]> = vec![
-                    //     [   0.0,   0.0 ],
-                    //     [  50.0,   0.0 ],
-                    //     [ 100.0,   0.0 ],
-                    //     [ 100.0,  50.0 ],
-                    //     [ 100.0, 100.0 ],
-                    //     [  50.0, 100.0 ],
-                    //     [   0.0, 100.0 ],
-                    //     [   0.0,  50.0 ],
-                    // ];
-                    // let mut curved_rect_p = vec![];
-                    // curved_rect_p.push(bezier_curve_points(&rect_p[7], &rect_p[0], &rect_p[1]));
-                    // curved_rect_p.push(bezier_curve_points(&rect_p[1], &rect_p[2], &rect_p[3]));
-                    // curved_rect_p.push(bezier_curve_points(&rect_p[3], &rect_p[4], &rect_p[5]));
-                    // curved_rect_p.push(bezier_curve_points(&rect_p[5], &rect_p[6], &rect_p[7]));
-                    // let curved_rect_p: Vec<[f64; 2]> = curved_rect_p.into_iter().flatten().collect();
+                    // clear(WHITE, pgr);
                     
-                    let rect = graphics::rectangle::rectangle_by_corners(0.0, 0.0, 100.0, 100.0);
-                    let curved_rect_p = get_rounded_rect_points(rect, 0.1);
-
+                    let rect = graphics::rectangle::rectangle_by_corners(0.0, 0.0, w, 50.0);
+                    let curved_rect_p = get_rounded_rect_points(rect, 10.0);
                     // println!("Curved rect: {:?}", curved_rect_p.iter().map(|p| p[0]).collect::<Vec<f64>>());
 
                     polygon(GRAY, &curved_rect_p.as_slice(), c.transform, pgr);
