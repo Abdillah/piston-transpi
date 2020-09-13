@@ -96,7 +96,9 @@ fn main() {
     let wb = WindowBuilder::new()
         .with_title("A transparent window!")
         .with_decorations(false)
-        .with_transparent(true);
+        .with_transparent(true)
+        .with_inner_size(glutin::dpi::PhysicalSize::new(500, 300))
+    ;
 
     let windowed_context =
         ContextBuilder::new()
@@ -134,11 +136,12 @@ fn main() {
                 _ => (),
             },
             Event::RedrawRequested(_) => {
-                use graphics::*;
-
                 // const GREEN: [f32; 4] = [0.0, 1.0, 0.0, 1.0];
-                const WHITE: [f32; 4] = [0.8, 0.8, 0.8, 1.0];
+                const WHITE: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
+                const WHITISH: [f32; 4] = [0.8, 0.8, 0.8, 1.0];
                 const GRAY: [f32; 4] = [0.4, 0.4, 0.4, 0.9];
+                const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
+                const GREEN: [f32; 4] = [0.0, 0.5, 0.0, 1.0];
 
                 let winsize = windowed_context.window().inner_size().clone();
 
@@ -150,14 +153,34 @@ fn main() {
                     draw_size: [ w as u32, h as u32 ],
                     window_size: [ w.into(), h.into() ],
                 }, |c, pgr| {
+                    use graphics::*;
+
                     // Clear the screen.
-                    // clear(WHITE, pgr);
+                    // clear(WHITISH, pgr);
+                    // clear([1.0; 4], pgr);
                     
                     let rect = graphics::rectangle::rectangle_by_corners(0.0, 0.0, w, 50.0);
                     let curved_rect_p = get_rounded_rect_points(rect, 10.0);
                     // println!("Curved rect: {:?}", curved_rect_p.iter().map(|p| p[0]).collect::<Vec<f64>>());
 
                     polygon(GRAY, &curved_rect_p.as_slice(), c.transform, pgr);
+
+                    let fontsize = 32;
+
+                    let mut glycache = opengl_graphics::GlyphCache::new("/home/fazbdillah/.local/share/fonts/FiraCode-Regular.ttf", (), opengl_graphics::TextureSettings::new()).unwrap();
+                    // text(BLACK, 72, "H", &mut glycache, c.transform.trans(20.0, 72.0), pgr);
+                    // glycache.preload_printable_ascii(fontsize);
+
+                    unsafe { gl::Enable(gl::TEXTURE_2D); };
+                    text::Text::new_color(GREEN, fontsize)
+                    .draw(
+                        "HH",
+                        &mut glycache,
+                        &DrawState::default(),
+                        c.transform.trans(10.0, 100.0),
+                        pgr
+                    ).unwrap();
+                    unsafe { gl::Disable(gl::TEXTURE_2D); };
 
                     // Draw a box rotating around the middle of the screen.
                     // rectangle(RED, square, c.transform, pgr);
