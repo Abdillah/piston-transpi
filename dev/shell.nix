@@ -11,6 +11,8 @@ let
 
     libGL
     SDL2
+
+    zlib
   ];
   ldpath = with nixpkgs.pkgs; nixpkgs.lib.makeLibraryPath libs;
   pkgcfgpath = with nixpkgs.pkgs; nixpkgs.lib.makeSearchPathOutput "lib" "lib/pkgconfig" [
