@@ -76,7 +76,6 @@ fn get_rounded_rect_points(rect: graphics::types::Rectangle, radius: f64) -> Vec
     //   |                 |
     let mut curved_rect_p = vec![];
     let [ tl_left, tl_top ] = get_cutcorner_points(rect, Corner::TopLeft, radius);
-    println!("TopLeft: {:#?}", [tl_left, tl, tl_top]);
 
     curved_rect_p.push(bezier_curve_points(&tl_left, &tl, &tl_top));
     let [ tr_top, tr_right ] = get_cutcorner_points(rect, Corner::TopRight, radius);
@@ -86,12 +85,11 @@ fn get_rounded_rect_points(rect: graphics::types::Rectangle, radius: f64) -> Vec
     let [ bl_bottom, bl_left ] = get_cutcorner_points(rect, Corner::BottomLeft, radius);
     curved_rect_p.push(bezier_curve_points(&bl_bottom, &bl, &bl_left));
     let curved_rect_p: Vec<Point> = curved_rect_p.into_iter().flatten().collect();
-    println!("{:#?}", curved_rect_p);
 
     curved_rect_p
 }
 
-fn main() {
+fn main() -> Result<(), String> {
     let el = EventLoop::new();
     let wb = WindowBuilder::new()
         .with_title("A transparent window!")
@@ -147,13 +145,24 @@ fn main() {
 
                 let w: f64 = winsize.width.into();
                 let h: f64 = winsize.height.into();
-        
+
+                // let rust_logo = opengl_graphics::Texture::from_path(
+                //     &std::path::Path::new("./assets/rust.png"),
+                //     &opengl_graphics::TextureSettings::new()
+                // ).unwrap();
+
+                let fontsize = 30;
+
+                let mut glycache = opengl_graphics::GlyphCache::new("/home/fazbdillah/.local/share/fonts/FiraCode-Regular.ttf", (), opengl_graphics::TextureSettings::new()).unwrap();
+                glycache.preload_printable_ascii(fontsize);
+
                 pgr.draw(viewport::Viewport {
                     rect: [ 0, 0, w as i32, h as i32 ],
                     draw_size: [ w as u32, h as u32 ],
                     window_size: [ w.into(), h.into() ],
                 }, |c, pgr| {
                     use graphics::*;
+                    use graphics::character::CharacterCache;
 
                     // Clear the screen.
                     // clear(WHITISH, pgr);
@@ -165,19 +174,17 @@ fn main() {
 
                     polygon(GRAY, &curved_rect_p.as_slice(), c.transform, pgr);
 
-                    let fontsize = 32;
-
-                    let mut glycache = opengl_graphics::GlyphCache::new("/home/fazbdillah/.local/share/fonts/FiraCode-Regular.ttf", (), opengl_graphics::TextureSettings::new()).unwrap();
                     // text(BLACK, 72, "H", &mut glycache, c.transform.trans(20.0, 72.0), pgr);
-                    // glycache.preload_printable_ascii(fontsize);
 
                     unsafe { gl::Enable(gl::TEXTURE_2D); };
-                    text::Text::new_color(GREEN, fontsize)
+                    // image(&rust_logo, c.transform.trans(5.0, 50.0), pgr);
+
+                    text::Text::new_color(WHITE, fontsize)
                     .draw(
-                        "HH",
+                        "Hello World!",
                         &mut glycache,
                         &DrawState::default(),
-                        c.transform.trans(10.0, 100.0),
+                        c.transform.trans(50.0, 40.0),
                         pgr
                     ).unwrap();
                     unsafe { gl::Disable(gl::TEXTURE_2D); };
