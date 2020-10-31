@@ -29,6 +29,9 @@ let
     nativeBuildInputs = [
         clang
         pkgconfig
+
+        # Runtime
+        gdb
     ];
     buildInputs = libs;
 
